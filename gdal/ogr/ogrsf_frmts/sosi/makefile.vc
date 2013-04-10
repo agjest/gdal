@@ -1,7 +1,7 @@
 
 OBJ	=	ogrsosidriver.obj ogrsosidatasource.obj ogrsosilayer.obj fyba_melding.obj \
 
-EXTRAFLAGS =	-I.. -I..\.. -I$(SOSI_INC_DIR)
+EXTRAFLAGS =	-I.. -I..\..
 
 GDAL_ROOT	=	..\..\..
 

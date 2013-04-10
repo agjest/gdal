@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id$
+ * $Id: ogr_sosi.h 21065 2010-11-05 18:47:30Z rouault $
  *
  * Project:  SOSI Translator
  * Purpose:  Implements OGRSOSIDriver.
@@ -33,6 +33,9 @@
 #include "ogrsf_frmts.h"
 #include "fyba.h"
 #include <map>
+
+/* interpolation of arcs(BUEP) creates # points for a full circle */
+#define ARC_INTERPOLATION_FULL_CIRCLE 36.0
 
 typedef std::map<CPLString, CPLString> S2S;
 typedef std::map<CPLString, unsigned int> S2I;
@@ -110,6 +113,7 @@ class OGRSOSIDataSource : public OGRDataSource {
     void                buildOGRPoint(long nSerial);
     void                buildOGRLineString(int nNumCoo, long nSerial);
     void                buildOGRMultiPoint(int nNumCoo, long nSerial);
+    void                buildOGRLineStringFromArc(long nSerial);
 
 public:
 
@@ -142,5 +146,55 @@ public:
     OGRLayer            *CreateLayer( const char *pszName, OGRSpatialReference  *poSpatialRef=NULL, OGRwkbGeometryType eGType=wkbUnknown, char **papszOptions=NULL);
     int                 TestCapability( const char * );
 };
+
+/************************************************************************
+ *                           OGRSOSIDataTypes                           *
+ * OGRSOSIDataTypes provides the correct data types for some of the     *
+ * most common SOSI elements.                                           *
+ ************************************************************************/
+
+class OGRSOSISimpleDataType {
+    const char          *pszName; 
+    OGRFieldType        nType;
+
+public:
+    OGRSOSISimpleDataType ();
+    OGRSOSISimpleDataType (const char *pszName, OGRFieldType nType);
+    ~OGRSOSISimpleDataType();
+
+    void setType (const char *pszName, OGRFieldType nType);
+    const char          *GetName() {
+        return pszName;
+    };
+    OGRFieldType        GetType() {
+        return nType;
+    };
+
+};
+
+class OGRSOSIDataType {
+    OGRSOSISimpleDataType* poElements;
+    int                    nElementCount;
+public:
+    OGRSOSIDataType (int nSize);
+    ~OGRSOSIDataType();
+
+    void setElement(int nIndex, const char *name, OGRFieldType type);
+    OGRSOSISimpleDataType* getElements() {
+        return poElements;
+    };
+    int getElementCount() {
+        return nElementCount;
+    };
+};
+
+typedef std::map<CPLString, OGRSOSIDataType> C2F;
+
+void SOSIInitTypes();
+OGRSOSIDataType* SOSIGetType(CPLString name);
+int  SOSITypeToInt(char* value);
+float  SOSITypeToReal(char* value);
+void SOSITypeToDate(char* value, int* date);
+void SOSITypeToDateTime(char* value, int* date);
 
 #endif /* _OGR_SOSI_H_INCLUDED */
