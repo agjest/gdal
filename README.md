@@ -1,3 +1,6 @@
+Note: This version includes support for the Norwegian National geoformat SOSI as a non-optional driver.
+The fyba library is required to build: http://github.com/kartverket/fyba
+
 GDAL - Geospatial Data Abstraction Library
 ====
 
