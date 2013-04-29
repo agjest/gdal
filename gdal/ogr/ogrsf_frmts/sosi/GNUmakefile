@@ -2,12 +2,7 @@
 
 include ../../../GDALmake.opt
 
-<<<<<<< HEAD
 OBJ	=	ogrsosidriver.o ogrsosidatasource.o ogrsosilayer.o ogrsosidatatypes.o 
-=======
-OBJ	=	ogrsosidriver.o ogrsosidatasource.o ogrsosilayer.o
-# ogrsosidatatypes.o 
->>>>>>> e48072bbb3d0b7e8d1e6f179d47923836558f253
 
 CPPFLAGS	:=-DLINUX -DUNIX -I.. -I../.. $(GDAL_INCLUDE) $(SOSI_INC) $(CPPFLAGS)
 

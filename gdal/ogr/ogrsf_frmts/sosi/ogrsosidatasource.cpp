@@ -151,12 +151,9 @@ OGRSOSIDataSource::OGRSOSIDataSource() {
     poCurveHeaders = NULL;
     
     pszEncoding = CPL_ENC_UTF8;
-<<<<<<< HEAD
 
     SOSIInitTypes();
-=======
     nMode = MODE_READING;
->>>>>>> e48072bbb3d0b7e8d1e6f179d47923836558f253
 }
 
 /************************************************************************/
@@ -201,12 +198,7 @@ OGRSOSIDataSource::~OGRSOSIDataSource() {
     if (pszName != NULL) CPLFree(pszName);
 }
 
-<<<<<<< HEAD
 OGRFeatureDefn *defineLayer(const char *szName, OGRwkbGeometryType szType, S2I *poHeaders, S2I **ppoHeadersNew) {
-=======
-static
-OGRFeatureDefn *defineLayer(const char *szName, OGRwkbGeometryType szType, S2I *poHeaders) {
->>>>>>> e48072bbb3d0b7e8d1e6f179d47923836558f253
     OGRFeatureDefn *poFeatureDefn = new OGRFeatureDefn( szName );
     poFeatureDefn->SetGeomType( szType );
     S2I* poHeadersNew  = *ppoHeadersNew; 
