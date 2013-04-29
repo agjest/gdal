@@ -154,8 +154,8 @@ algorithm, worst interpolation quality).</dd>
 <dt><b>cubic</b></dt>: <dd>cubic resampling.</dd>
 <dt><b>cubicspline</b></dt>: <dd>cubic spline resampling.</dd>
 <dt><b>lanczos</b></dt>: <dd>Lanczos windowed sinc resampling.</dd>
-<dt><b>average</b></dt>: <dd>average resampling, computes the average of all non-NODATA contributing pixels.</dd>
-<dt><b>mode</b></dt>: <dd>mode resampling, selects the value which appears most often of all the sampled points.</dd>
+<dt><b>average</b></dt>: <dd>average resampling, computes the average of all non-NODATA contributing pixels. (GDAL >= 1.10.0)</dd>
+<dt><b>mode</b></dt>: <dd>mode resampling, selects the value which appears most often of all the sampled points. (GDAL >= 1.10.0)</dd>
 </dl>
 <dt> <b>-srcnodata</b> <em>value [value...]</em>:</dt><dd> Set nodata masking
 values for input bands (different values can be supplied for each band).  If 
@@ -1046,12 +1046,13 @@ int main( int argc, char ** argv )
 /* -------------------------------------------------------------------- */
  
         if ( eResampleAlg != GRA_NearestNeighbour &&
+             eResampleAlg != GRA_Mode &&
              GDALGetRasterColorTable(GDALGetRasterBand(hSrcDS, 1)) != NULL)
         {
             if( !bQuiet )
                 fprintf( stderr, "Warning: Input file %s has a color table, which will likely lead to "
                         "bad results when using a resampling method other than "
-                        "nearest neighbour. Converting the dataset prior to 24/32 bit "
+                        "nearest neighbour or mode. Converting the dataset prior to 24/32 bit "
                         "is advised.\n", papszSrcFiles[iSrc] );
         }
 

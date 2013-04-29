@@ -40,6 +40,9 @@ OGRSOSILayer::OGRSOSILayer( OGRSOSIDataSource *poPar, OGRFeatureDefn *poFeatDefn
     poFeatureDefn = poFeatDefn;
     poHeaderDefn  = poHeadDefn;
     nNextFID      = 0;
+    poNextSerial  = NULL;
+
+    ResetReading();
 }
 
 /************************************************************************/
@@ -353,6 +356,9 @@ OGRFeature *OGRSOSILayer::GetNextFeature() {
                 }
           }
         }
+        
+        if( poGeom != NULL )
+            poGeom->assignSpatialReference(poParent->poSRS);
 
         poFeature->SetGeometryDirectly( poGeom );
         poFeature->SetFID( nNextFID++ );

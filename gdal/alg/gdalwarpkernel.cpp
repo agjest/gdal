@@ -2287,6 +2287,7 @@ static int GWKResampleOptimizedLanczos( GDALWarpKernel *poWK, int iBand,
 static GWKResampleWrkStruct* GWKResampleCreateWrkStruct(GDALWarpKernel *poWK)
 {
     int     nXDist = ( poWK->nXRadius + 1 ) * 2;
+    int     nYDist = ( poWK->nYRadius + 1 ) * 2;
 
     GWKResampleWrkStruct* psWrkStruct =
             (GWKResampleWrkStruct*)CPLMalloc(sizeof(GWKResampleWrkStruct));
@@ -2295,7 +2296,7 @@ static GWKResampleWrkStruct* GWKResampleCreateWrkStruct(GDALWarpKernel *poWK)
     psWrkStruct->padfWeightsX = (double *)CPLCalloc( nXDist, sizeof(double) );
     psWrkStruct->panCalcX = (char *)CPLMalloc( nXDist * sizeof(char) );
     
-    psWrkStruct->padfWeightsY = (double *)CPLCalloc( nXDist, sizeof(double) );
+    psWrkStruct->padfWeightsY = (double *)CPLCalloc( nYDist, sizeof(double) );
     psWrkStruct->iLastSrcX = -10;
     psWrkStruct->iLastSrcY = -10;
     psWrkStruct->dfLastDeltaX = -10;
@@ -4985,16 +4986,47 @@ static void GWKAverageOrModeThread( void* pData)
 /*      Find out which algorithm to use (small optim.)                  */
 /* -------------------------------------------------------------------- */
     int nAlgo = 0;
+
+    // these vars only used with nAlgo == 3
+    int *panVals = NULL;
+    int nBins = 0, nBinsOffset = 0;
+
     if ( poWK->eResample == GRA_Average ) 
     {
         nAlgo = 1;
     }
     else if( poWK->eResample == GRA_Mode )
     {
-        if ( poWK->eWorkingDataType != GDT_Byte ) //  ||  nEntryCount > 256)
-            nAlgo = 2;
-        else
+        // TODO check color table count > 256
+        if ( poWK->eWorkingDataType == GDT_Byte ||
+             poWK->eWorkingDataType == GDT_UInt16 ||
+             poWK->eWorkingDataType == GDT_Int16 )
+        {
             nAlgo = 3;
+
+            /* In the case of a paletted or non-paletted byte band, */
+            /* input values are between 0 and 255 */
+            if ( poWK->eWorkingDataType == GDT_Byte )
+            {
+                nBins = 256;
+            }
+            /* In the case of Int16, input values are between -32768 and 32767 */
+            else if ( poWK->eWorkingDataType == GDT_Int16 )
+            {
+                nBins = 65536;
+                nBinsOffset = 32768;
+            }
+            /* In the case of UInt16, input values are between 0 and 65537 */
+            else if ( poWK->eWorkingDataType == GDT_UInt16 )
+            {
+                nBins = 65536;
+            }
+            panVals = (int*) CPLMalloc(nBins * sizeof(int));            
+        }
+        else
+        {
+            nAlgo = 2;
+        }
     }
     else
     {
@@ -5010,7 +5042,7 @@ static void GWKAverageOrModeThread( void* pData)
 /* -------------------------------------------------------------------- */
     double *padfX, *padfY, *padfZ;
     double *padfX2, *padfY2, *padfZ2;
-    int    *pabSuccess;
+    int    *pabSuccess, *pabSuccess2;
 
     padfX = (double *) CPLMalloc(sizeof(double) * nDstXSize);
     padfY = (double *) CPLMalloc(sizeof(double) * nDstXSize);
@@ -5019,6 +5051,7 @@ static void GWKAverageOrModeThread( void* pData)
     padfY2 = (double *) CPLMalloc(sizeof(double) * nDstXSize);
     padfZ2 = (double *) CPLMalloc(sizeof(double) * nDstXSize);
     pabSuccess = (int *) CPLMalloc(sizeof(int) * nDstXSize);
+    pabSuccess2 = (int *) CPLMalloc(sizeof(int) * nDstXSize);
 
 /* ==================================================================== */
 /*      Loop over output lines.                                         */
@@ -5046,7 +5079,7 @@ static void GWKAverageOrModeThread( void* pData)
         poWK->pfnTransformer( psJob->pTransformerArg, TRUE, nDstXSize,
                               padfX, padfY, padfZ, pabSuccess );
         poWK->pfnTransformer( psJob->pTransformerArg, TRUE, nDstXSize,
-                              padfX2, padfY2, padfZ2, pabSuccess );
+                              padfX2, padfY2, padfZ2, pabSuccess2 );
 
 /* ==================================================================== */
 /*      Loop over pixels in output scanline.                            */
@@ -5057,11 +5090,14 @@ static void GWKAverageOrModeThread( void* pData)
             double  dfDensity = 1.0;
             int bHasFoundDensity = FALSE;
 
+            if( !pabSuccess[iDstX] || !pabSuccess2[iDstX] )
+                continue;
+            iDstOffset = iDstX + iDstY * nDstXSize;
+
 /* ==================================================================== */
 /*      Loop processing each band.                                      */
 /* ==================================================================== */
             
-            iDstOffset = iDstX + iDstY * nDstXSize;
             for( int iBand = 0; iBand < poWK->nBands; iBand++ )
             {
                 double dfBandDensity = 0.0;
@@ -5094,7 +5130,7 @@ static void GWKAverageOrModeThread( void* pData)
                     {
                         for( iSrcX = iSrcXMin; iSrcX < iSrcXMax; iSrcX++ )
                         {
-                            int iSrcOffset = iSrcX + iSrcY * nSrcXSize;
+                            iSrcOffset = iSrcX + iSrcY * nSrcXSize;
                             
                             if( poWK->panUnifiedSrcValid != NULL
                                 && !(poWK->panUnifiedSrcValid[iSrcOffset>>5]
@@ -5106,9 +5142,9 @@ static void GWKAverageOrModeThread( void* pData)
                             nCount2++;
                             if ( GWKGetPixelValue( poWK, iBand, iSrcOffset,
                                                    &dfBandDensity, &dfValueRealTmp, &dfValueImagTmp ) && dfBandDensity > 0.0000000001 ) 
-                            {                       
-                                dfTotal += dfValueRealTmp;
+                            {
                                 nCount++;
+                                dfTotal += dfValueRealTmp;
                             }
                         }
                     }
@@ -5126,27 +5162,22 @@ static void GWKAverageOrModeThread( void* pData)
                 {
                     // this code adapted from GDALDownsampleChunk32R_Mode() in gcore/overview.cpp
 
-                    // TODO add algorithm for Int16 / Int32 data type that uses less memory and cpu...
-
-                    if ( nAlgo == 2 ) // poWK->eWorkingDataType != GDT_Byte ) //  ||  nEntryCount > 256)
+                    if ( nAlgo == 2 ) // int32 or float
                     {
                         /* I'm not sure how much sense it makes to run a majority
                            filter on floating point data, but here it is for the sake
                            of compatability. It won't look right on RGB images by the
                            nature of the filter. */
+                        int     iMaxInd = 0, iMaxVal = -1, i = 0;
                         int     nNumPx = nSrcXSize * nSrcYSize;
-                        int     iMaxInd = 0, iMaxVal = -1;
-                        
-                        int      nMaxNumPx = 0;
-                        float*   pafVals = NULL;
-                        int*     panSums = NULL;
-                        
-                        if (nNumPx > nMaxNumPx)
-                        {
-                            pafVals = (float*) CPLRealloc(pafVals, nNumPx * sizeof(float));
-                            panSums = (int*) CPLRealloc(panSums, nNumPx * sizeof(int));
-                            nMaxNumPx = nNumPx;
-                        }
+
+                        if ( nNumPx == 0 )
+                            continue;
+
+                        /* putting alloc outside of loop (and CPLRealloc here) saves time 
+                           but takes much more memory (why?), so just doing malloc here */
+                        float*   pafVals = (float*) CPLMalloc(nNumPx * sizeof(float));
+                        int*     panSums = (int*) CPLMalloc(nNumPx * sizeof(int));
                         
                         for( iSrcY = iSrcYMin; iSrcY < iSrcYMax; iSrcY++ )
                         {
@@ -5163,8 +5194,9 @@ static void GWKAverageOrModeThread( void* pData)
                                 if ( GWKGetPixelValue( poWK, iBand, iSrcOffset,
                                                        &dfBandDensity, &dfValueRealTmp, &dfValueImagTmp ) && dfBandDensity > 0.0000000001 ) 
                                 {
+                                    nCount++;
+
                                     float fVal = dfValueRealTmp;
-                                    int i;
                                     
                                     //Check array for existing entry
                                     for( i = 0; i < iMaxInd; ++i )
@@ -5196,15 +5228,16 @@ static void GWKAverageOrModeThread( void* pData)
                             dfBandDensity = 1;                
                             bHasFoundDensity = TRUE;
                         }
+
+                        CPLFree( pafVals );
+                        CPLFree( panSums );
                     }
                     
-                    else // nAlgo == 3 / poWK->eWorkingDataType == GDT_Byte
+                    else // byte or int16
                     {
-                        /* So we go here for a paletted or non-paletted byte band */
-                        /* The input values are then between 0 and 255 */
-                        int     anVals[256], nMaxVal = 0, iMaxInd = -1;
-                        int nCount = 0;
-                        memset(anVals, 0, 256*sizeof(int));
+                        int nMaxVal = 0, iMaxInd = -1;
+
+                        memset(panVals, 0, nBins*sizeof(int));
                         
                         for( iSrcY = iSrcYMin; iSrcY < iSrcYMax; iSrcY++ )
                         {
@@ -5222,13 +5255,14 @@ static void GWKAverageOrModeThread( void* pData)
                                                        &dfBandDensity, &dfValueRealTmp, &dfValueImagTmp ) && dfBandDensity > 0.0000000001 ) 
                                 {
                                     nCount++;
+
                                     int nVal = (int) dfValueRealTmp;
-                                    if ( ++anVals[nVal] > nMaxVal)
+                                    if ( ++panVals[nVal+nBinsOffset] > nMaxVal)
                                     {
                                         //Sum the density
                                         //Is it the most common value so far?
                                         iMaxInd = nVal;
-                                        nMaxVal = anVals[nVal];
+                                        nMaxVal = panVals[nVal+nBinsOffset];
                                     }
                                 }
                             }
@@ -5294,5 +5328,7 @@ static void GWKAverageOrModeThread( void* pData)
     CPLFree( padfY2 );
     CPLFree( padfZ2 );
     CPLFree( pabSuccess );
+    CPLFree( pabSuccess2 );
+    if ( panVals ) CPLFree( panVals );
 }
 

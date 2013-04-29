@@ -71,7 +71,6 @@ public:
  ************************************************************************/
 
 class OGRSOSILayer : public OGRLayer {
-    FILE               *fp;
     int                 nNextFID;
 
     OGRSOSIDataSource  *poParent;   /* used to call methods from data source */

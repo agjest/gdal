@@ -151,8 +151,12 @@ OGRSOSIDataSource::OGRSOSIDataSource() {
     poCurveHeaders = NULL;
     
     pszEncoding = CPL_ENC_UTF8;
+<<<<<<< HEAD
 
     SOSIInitTypes();
+=======
+    nMode = MODE_READING;
+>>>>>>> e48072bbb3d0b7e8d1e6f179d47923836558f253
 }
 
 /************************************************************************/
@@ -197,7 +201,12 @@ OGRSOSIDataSource::~OGRSOSIDataSource() {
     if (pszName != NULL) CPLFree(pszName);
 }
 
+<<<<<<< HEAD
 OGRFeatureDefn *defineLayer(const char *szName, OGRwkbGeometryType szType, S2I *poHeaders, S2I **ppoHeadersNew) {
+=======
+static
+OGRFeatureDefn *defineLayer(const char *szName, OGRwkbGeometryType szType, S2I *poHeaders) {
+>>>>>>> e48072bbb3d0b7e8d1e6f179d47923836558f253
     OGRFeatureDefn *poFeatureDefn = new OGRFeatureDefn( szName );
     poFeatureDefn->SetGeomType( szType );
     S2I* poHeadersNew  = *ppoHeadersNew; 
@@ -230,6 +239,11 @@ int  OGRSOSIDataSource::Open( const char *pszFilename, int bUpdate ) {
                   "Update access not supported by the SOSI driver." );
         return FALSE;
     }
+
+    /* Check that the file exists otherwise HO_TestSOSI() emits an error */
+    VSIStatBuf sStat;
+    if( VSIStat(pszFilename, &sStat) != 0 )
+        return FALSE;
 
     pszName = CPLStrdup( pszFilename );
     /* We ignore any layer parameters for now. */
@@ -313,11 +327,12 @@ int  OGRSOSIDataSource::Open( const char *pszFilename, int bUpdate ) {
             if (pszLine[0] == '!') continue;  /* If we have a comment line, skip it. */
             
             char *pszUTFLine = CPLRecode(pszLine, pszEncoding, CPL_ENC_UTF8); /* switch to UTF encoding here, if it is known. */
+            char *pszUTFLineIter = pszUTFLine;
 			
-            while (pszUTFLine[0] == '.') pszUTFLine++; /* Skipping the dots at the beginning of a SOSI line */
-            char *pszPos = strstr(pszUTFLine, " "); /* Split header and value */
+            while (pszUTFLineIter[0] == '.') pszUTFLineIter++; /* Skipping the dots at the beginning of a SOSI line */
+            char *pszPos = strstr(pszUTFLineIter, " "); /* Split header and value */
             if (pszPos != NULL) {
-                CPLString osKey = CPLString(std::string(pszUTFLine,pszPos)); /* FIXME: clean instantiation of CPLString? */
+                CPLString osKey = CPLString(std::string(pszUTFLineIter,pszPos)); /* FIXME: clean instantiation of CPLString? */
                 CPLString osValue = CPLString(pszPos+1);
                 
                 oHeaders[osKey]=osValue;          /* Add to header map */
@@ -355,7 +370,7 @@ int  OGRSOSIDataSource::Open( const char *pszFilename, int bUpdate ) {
                 }
                 }
             }
-            //CPLFree(pszUTFLine);
+            CPLFree(pszUTFLine);
         }
 
         /* Feature-specific tasks */
@@ -403,7 +418,6 @@ int  OGRSOSIDataSource::Open( const char *pszFilename, int bUpdate ) {
                 return NULL;
             }
             poSRS = new OGRSpatialReference();
-            poSRS->Reference();
 
             /* Get coordinate system from SOSI header. */
             int nEPSG = sosi2epsg(oTrans.sKoordsys);
