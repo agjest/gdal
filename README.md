@@ -1,6 +1,8 @@
 Note: This version includes support for the Norwegian National geoformat SOSI as a non-optional driver.
 The fyba library is required to build: http://github.com/kartverket/fyba
 
+Cf this page for the latest build hints: http://trac.osgeo.org/gdal/wiki/SOSI
+
 GDAL - Geospatial Data Abstraction Library
 ====
 
